@@ -3,33 +3,99 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+
+import React, { useEffect } from 'react';
+
+export default function App() {
+  const [users, setUsers] = useState([]);
+  const [formData, setFormData] = useState({ name: '', email: '' });
+  const [editingId, setEditingId] = useState(null);
+
+  // Fetch existing users
+  useEffect(() => {
+    fetch('https://jsonplaceholder.typicode.com/users?_limit=5')
+      .then((res) => res.json())
+      .then(setUsers);
+  }, []);
+
+  // Handle form input
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Add or update user
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (editingId) {
+      // Update user
+      const res = await fetch(`https://jsonplaceholder.typicode.com/users/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const updatedUser = await res.json();
+      setUsers(users.map(u => (u.id === editingId ? updatedUser : u)));
+      setEditingId(null);
+    } else {
+      // Add user
+      const res = await fetch('https://jsonplaceholder.typicode.com/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const newUser = await res.json();
+      newUser.id = Date.now(); // since JSONPlaceholder doesn’t return unique IDs
+      setUsers([...users, newUser]);
+    }
+    setFormData({ name: '', email: '' });
+  };
+
+  // Delete user
+  const handleDelete = async (id) => {
+    await fetch(`https://jsonplaceholder.typicode.com/users/${id}`, {
+      method: 'DELETE',
+    });
+    setUsers(users.filter((u) => u.id !== id));
+  };
+
+  // Edit user
+  const handleEdit = (user) => {
+    setFormData({ name: user.name, email: user.email });
+    setEditingId(user.id);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="container">
+      <h1>Simple React CRUD </h1>
+      <form onSubmit={handleSubmit} className="form">
+        <input
+          type="text"
+          name="name"
+          placeholder="Name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+        />
+        <button type="submit">{editingId ? 'Update' : 'Add'}</button>
+      </form>
 
-export default App
+      <ul className="user-list">
+        {users.map((user) => (
+          <li key={user.id}>
+            <strong>{user.name}</strong> ({user.email})
+            <button onClick={() => handleEdit(user)}>✏️</button>
+            <button onClick={() => handleDelete(user.id)}>🗑️</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
